@@ -17,7 +17,7 @@ const userSchema = new mongoose.Schema({
   },
   role: {
     type: String,
-    enum: ['user', 'guide', 'lead-guide', 'admin'],
+    enum: ['user', 'admin'],
     default: 'user'
   },
   password: {
@@ -38,7 +38,7 @@ const userSchema = new mongoose.Schema({
     }
   },
   passwordChangedAt: Date,
-  passwordResetToken: String,
+  passwordResetPIN: String,
   passwordResetExpires: Date,
   active: {
     type: Boolean,
@@ -93,19 +93,17 @@ userSchema.methods.changedPasswordAfter = function(JWTTimestamp) {
   return false;
 };
 
-userSchema.methods.createPasswordResetToken = function() {
-  const resetToken = crypto.randomBytes(32).toString('hex');
+userSchema.methods.createPasswordResetPIN = function() {
+  const resetPIN = Math.random().toString().slice(2, 10);
 
-  this.passwordResetToken = crypto
+  this.passwordResetPIN = crypto
     .createHash('sha256')
-    .update(resetToken)
+    .update(resetPIN)
     .digest('hex');
-
-  // console.log({ resetToken }, this.passwordResetToken);
 
   this.passwordResetExpires = Date.now() + 10 * 60 * 1000;
 
-  return resetToken;
+  return resetPIN;
 };
 
 const User = mongoose.model('User', userSchema);
