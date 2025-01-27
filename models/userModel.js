@@ -20,6 +20,10 @@ const userSchema = new mongoose.Schema({
     enum: ['user', 'admin'],
     default: 'user'
   },
+  points : {
+    type: Number,
+    default: 0
+  },
   password: {
     type: String,
     required: [true, 'Please provide a password'],
@@ -40,6 +44,10 @@ const userSchema = new mongoose.Schema({
   passwordChangedAt: Date,
   passwordResetPIN: String,
   passwordResetExpires: Date,
+  passwordResetPINAttempts: {
+    type: Number,
+    default: 0
+  },
   active: {
     type: Boolean,
     default: true,
@@ -94,7 +102,7 @@ userSchema.methods.changedPasswordAfter = function(JWTTimestamp) {
 };
 
 userSchema.methods.createPasswordResetPIN = function() {
-  const resetPIN = Math.random().toString().slice(2, 10);
+  const resetPIN = Math.random().toString().slice(2, 6);
 
   this.passwordResetPIN = crypto
     .createHash('sha256')
@@ -102,6 +110,7 @@ userSchema.methods.createPasswordResetPIN = function() {
     .digest('hex');
 
   this.passwordResetExpires = Date.now() + 10 * 60 * 1000;
+  this.passwordResetPINAttempts = 0;
 
   return resetPIN;
 };

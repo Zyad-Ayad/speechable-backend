@@ -8,8 +8,13 @@ router.post('/signup', authController.signup);
 router.post('/login', authController.login);
 
 router.post('/forgotPassword', authController.forgotPassword);
-router.patch('/resetPassword', authController.resetPassword);
-
+router.patch('/resetPassword', authController.verifiyPasswordResetPIN, authController.resetPassword);
+router.post('/verifiyPasswordResetPIN', authController.verifiyPasswordResetPIN, ( req, res ) => {
+  res.status(200).json({
+    status: 'success',
+    message: 'PIN is correct'
+  });
+});
 // Protect all routes after this middleware
 router.use(authController.protect);
 
@@ -20,6 +25,7 @@ router.patch(
   userController.updateMe
 );
 router.delete('/deleteMe', userController.deleteMe);
+router.post('/points', userController.addPoints);
 
 router.use(authController.restrictTo('admin'));
 

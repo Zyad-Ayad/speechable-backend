@@ -112,6 +112,8 @@ exports.protect = catchAsync(async (req, res, next) => {
 });
 
 
+
+
 exports.restrictTo = (...roles) => {
   return (req, res, next) => {
     if (!roles.includes(req.user.role)) {
@@ -168,6 +170,8 @@ exports.resetPassword = catchAsync(async (req, res, next) => {
     .update(req.body.pin)
     .digest('hex');
 
+
+
   const user = await User.findOne({
     email: req.body.email,
   });
@@ -217,3 +221,42 @@ exports.updatePassword = catchAsync(async (req, res, next) => {
   // 4) Log user in, send JWT
   createSendToken(user, 200, req, res);
 });
+
+
+exports.verifiyPasswordResetPIN = catchAsync(async (req, res, next) => {
+
+
+  if(!req.body.pin) {
+    return next(new AppError('Please provide a PIN', 400));
+  }
+
+
+  const hashedPIN = crypto
+    .createHash('sha256')
+    .update(req.body.pin)
+    .digest('hex');
+
+  const user = await User.findOne({
+    email: req.body.email,
+  });
+
+  if(!user)
+  {
+    return next(new AppError('No user found with this email', 404));
+  }
+
+  if(user.passwordResetPINAttempts >= 5)
+  {
+    return next(new AppError('Too many attempts, request new PIN', 400));
+  }
+
+  
+  if(user.passwordResetPIN !== hashedPIN || user.passwordResetExpires < Date.now())
+  {
+    await User.findOneAndUpdate({email: req.body.email}, {passwordResetPINAttempts: user.passwordResetPINAttempts + 1});
+    return next(new AppError('Invalid or expired PIN', 400));
+  }
+
+  return next();
+
+})

@@ -2,7 +2,7 @@ const User = require('./../models/userModel');
 const catchAsync = require('./../utils/catchAsync');
 const AppError = require('./../utils/appError');
 const factory = require('./handlerFactory');
-
+const { parse } = require('path');
 
 
 
@@ -67,6 +67,36 @@ exports.createUser = (req, res) => {
 
 exports.getUser = factory.getOne(User);
 exports.getAllUsers = factory.getAll(User);
+
+exports.addPoints = catchAsync(async (req, res, next) => {
+
+  let pointsToAdd;
+  try {
+    pointsToAdd = parseInt(req.body.points);
+  }
+  catch(err) {
+    return next(new AppError('Please provide a valid number', 400));
+  }
+
+  if(pointsToAdd < 0) {
+    return next(new AppError('Please provide a valid number', 400));
+  }
+
+  const Olduser = await User.findById(req.user.id);
+
+  const user = await  User.findByIdAndUpdate(req.user.id, { points: Olduser.points + pointsToAdd }, {
+    new : true,
+  });
+
+
+  res.status(200).json({
+    status: 'success',
+    data: {
+      user
+    }
+  });
+
+});
 
 // Do NOT update passwords with this!
 exports.updateUser = factory.updateOne(User);
