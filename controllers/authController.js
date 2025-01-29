@@ -5,6 +5,10 @@ const User = require('./../models/userModel');
 const catchAsync = require('./../utils/catchAsync');
 const AppError = require('./../utils/appError');
 const Email = require('./../utils/email');
+const { OAuth2Client } = require('google-auth-library');
+
+
+const GoogleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
 const signToken = id => {
   return jwt.sign({ id }, process.env.JWT_SECRET, {
@@ -225,7 +229,6 @@ exports.updatePassword = catchAsync(async (req, res, next) => {
 
 exports.verifiyPasswordResetPIN = catchAsync(async (req, res, next) => {
 
-
   if(!req.body.pin) {
     return next(new AppError('Please provide a PIN', 400));
   }
@@ -260,3 +263,38 @@ exports.verifiyPasswordResetPIN = catchAsync(async (req, res, next) => {
   return next();
 
 })
+
+
+exports.auth = catchAsync(async (req, res, next) => {
+
+  const { tokenId } = req.body;
+
+  const ticket = await GoogleClient.verifyIdToken({
+    idToken: tokenId,
+    audience: process.env.GOOGLE_CLIENT_ID,
+  });
+
+  const { email_verified, email, name } = ticket.getPayload();
+
+  if(email_verified)
+  {
+    let user = await User.findOne({email: email});
+    const password = crypto.randomBytes(20).toString('hex');
+    if(!user)
+    {
+      user = await User.create({
+        name: name,
+        email: email,
+        password: password,
+        passwordConfirm: password
+      });
+    }
+
+    createSendToken(user, 200, req, res);
+  }
+  else
+  {
+    return next(new AppError('Email not verified', 400));
+  }
+
+});
