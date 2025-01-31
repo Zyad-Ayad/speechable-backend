@@ -267,34 +267,32 @@ exports.verifiyPasswordResetPIN = catchAsync(async (req, res, next) => {
 
 exports.auth = catchAsync(async (req, res, next) => {
 
-  const { tokenId } = req.body;
+  const email = req.body.email;
+  const name = req.body.name;
 
-  const ticket = await GoogleClient.verifyIdToken({
-    idToken: tokenId,
-    audience: process.env.GOOGLE_CLIENT_ID,
+  if(!email || !name)
+  {
+    return next(new AppError('Please provide email and name', 400));
+  }
+
+  const user = await User.findOne({
+    email: email
   });
 
-  const { email_verified, email, name } = ticket.getPayload();
-
-  if(email_verified)
+  if(user)
   {
-    let user = await User.findOne({email: email});
-    const password = crypto.randomBytes(20).toString('hex');
-    if(!user)
-    {
-      user = await User.create({
-        name: name,
-        email: email,
-        password: password,
-        passwordConfirm: password
-      });
-    }
-
     createSendToken(user, 200, req, res);
   }
-  else
-  {
-    return next(new AppError('Email not verified', 400));
+  else {
+    const password = crypto.randomBytes(16).toString('hex');
+    const newUser = await User.create({
+      name: name,
+      email: email,
+      password: password,
+      passwordConfirm: password
+    });
+
+    createSendToken(newUser, 201, req, res);
   }
 
 });
