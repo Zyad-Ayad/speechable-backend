@@ -27,6 +27,7 @@ router.patch(
 );
 router.delete('/deleteMe', userController.deleteMe);
 router.post('/points', userController.addPoints);
+router.get('/points', userController.getPoints);
 
 router.use(authController.restrictTo('admin'));
 

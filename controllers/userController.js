@@ -3,7 +3,7 @@ const catchAsync = require('./../utils/catchAsync');
 const AppError = require('./../utils/appError');
 const factory = require('./handlerFactory');
 const { parse } = require('path');
-
+const Points = require('./../models/pointsModel');
 
 
 
@@ -84,6 +84,22 @@ exports.addPoints = catchAsync(async (req, res, next) => {
 
   const Olduser = await User.findById(req.user.id);
 
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  // Try to update today's document if it exists
+  let todayDoc = await Points.findOneAndUpdate(
+    { user: req.user.id, date: today },
+    { $inc: { points: pointsToAdd } },
+    { new: true }
+  );
+
+   // If no record for today exists, create one
+   if (!todayDoc) {
+    todayDoc = new Points({ user: req.user.id, date: today, points: pointsToAdd });
+    await todayDoc.save();
+  }
+
   const user = await  User.findByIdAndUpdate(req.user.id, { points: Olduser.points + pointsToAdd }, {
     new : true,
   });
@@ -96,6 +112,19 @@ exports.addPoints = catchAsync(async (req, res, next) => {
     }
   });
 
+});
+
+
+exports.getPoints = catchAsync(async (req, res, next) => {
+  const points = await Points.find({ user: req.user.id })
+    .select('-_id -__v -user')
+    .sort('date');
+  res.status(200).json({
+    status: 'success',
+    data: {
+      points
+    }
+  });
 });
 
 // Do NOT update passwords with this!
