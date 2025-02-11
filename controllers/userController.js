@@ -127,6 +127,53 @@ exports.getPoints = catchAsync(async (req, res, next) => {
   });
 });
 
+exports.getPointsWeek = catchAsync(async (req, res, next) => {
+
+  const today = new Date();
+today.setHours(0, 0, 0, 0);
+
+// Get the last 7 days from the database
+const sevenDaysAgo = new Date(today);
+sevenDaysAgo.setDate(today.getDate() - 6); // Adjust for correct range
+
+const week = await Points.find({
+  user: req.user.id,
+  date: { $gte: sevenDaysAgo }
+})
+  .select('-_id -__v -user')
+  .sort('date');
+
+// Normalize the dates and store in a Map
+const weekMap = new Map();
+week.forEach((day) => {
+  const normalizedDate = new Date(day.date);
+  normalizedDate.setHours(0, 0, 0, 0); // Ensure the same format
+  weekMap.set(normalizedDate.getTime(), day.points); // Use timestamp as key
+});
+
+// Build the array with missing days filled with 0 points
+const weekArray = [];
+for (let i = 6; i >= 0; i--) { // Reverse loop for correct order
+  const day = new Date(today);
+  day.setDate(today.getDate() - i);
+  day.setHours(0, 0, 0, 0); // Normalize
+
+  weekArray.push({
+    date: day,
+    points: weekMap.get(day.getTime()) || 0, // Fetch from map
+  });
+}
+
+res.status(200).json({
+  status: 'success',
+  data: {
+    week: weekArray
+  }
+});
+
+
+});
+
 // Do NOT update passwords with this!
 exports.updateUser = factory.updateOne(User);
 exports.deleteUser = factory.deleteOne(User);
