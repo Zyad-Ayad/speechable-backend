@@ -24,6 +24,20 @@ const userSchema = new mongoose.Schema({
     type: Number,
     default: 0
   },
+  sections: {
+    type: [
+      {
+        lastTimeUsed: { type: Date, default: null },
+        correctAttempts: { type: Number, default: 0 },
+        wrongAttempts: { type: Number, default: 0 }
+      }
+    ],
+    default: Array(10).fill().map(() => ({
+      lastTimeUsed: null,
+      correctAttempts: 0,
+      wrongAttempts: 0
+    }))
+  },
   password: {
     type: String,
     required: [true, 'Please provide a password'],

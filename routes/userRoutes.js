@@ -29,6 +29,8 @@ router.delete('/deleteMe', userController.deleteMe);
 router.post('/points', userController.addPoints);
 router.get('/points', userController.getPoints);
 router.get('/points/week', userController.getPointsWeek);
+router.get('/sections', userController.getSections);
+router.post('/sections', userController.sectionUpdate);
 
 router.use(authController.restrictTo('admin'));
 

@@ -4,6 +4,7 @@ const AppError = require('./../utils/appError');
 const factory = require('./handlerFactory');
 const { parse } = require('path');
 const Points = require('./../models/pointsModel');
+const Sections = require('./../models/sectionsModel');
 
 
 
@@ -74,11 +75,11 @@ exports.addPoints = catchAsync(async (req, res, next) => {
   try {
     pointsToAdd = parseInt(req.body.points);
   }
-  catch(err) {
+  catch (err) {
     return next(new AppError('Please provide a valid number', 400));
   }
 
-  if(pointsToAdd < 0) {
+  if (pointsToAdd < 0) {
     return next(new AppError('Please provide a valid number', 400));
   }
 
@@ -94,14 +95,14 @@ exports.addPoints = catchAsync(async (req, res, next) => {
     { new: true }
   );
 
-   // If no record for today exists, create one
-   if (!todayDoc) {
+  // If no record for today exists, create one
+  if (!todayDoc) {
     todayDoc = new Points({ user: req.user.id, date: today, points: pointsToAdd });
     await todayDoc.save();
   }
 
-  const user = await  User.findByIdAndUpdate(req.user.id, { points: Olduser.points + pointsToAdd }, {
-    new : true,
+  const user = await User.findByIdAndUpdate(req.user.id, { points: Olduser.points + pointsToAdd }, {
+    new: true,
   });
 
 
@@ -130,49 +131,115 @@ exports.getPoints = catchAsync(async (req, res, next) => {
 exports.getPointsWeek = catchAsync(async (req, res, next) => {
 
   const today = new Date();
-today.setHours(0, 0, 0, 0);
+  today.setHours(0, 0, 0, 0);
 
-// Get the last 7 days from the database
-const sevenDaysAgo = new Date(today);
-sevenDaysAgo.setDate(today.getDate() - 6); // Adjust for correct range
+  // Get the last 7 days from the database
+  const sevenDaysAgo = new Date(today);
+  sevenDaysAgo.setDate(today.getDate() - 6); // Adjust for correct range
 
-const week = await Points.find({
-  user: req.user.id,
-  date: { $gte: sevenDaysAgo }
-})
-  .select('-_id -__v -user')
-  .sort('date');
+  const week = await Points.find({
+    user: req.user.id,
+    date: { $gte: sevenDaysAgo }
+  })
+    .select('-_id -__v -user')
+    .sort('date');
 
-// Normalize the dates and store in a Map
-const weekMap = new Map();
-week.forEach((day) => {
-  const normalizedDate = new Date(day.date);
-  normalizedDate.setHours(0, 0, 0, 0); // Ensure the same format
-  weekMap.set(normalizedDate.getTime(), day.points); // Use timestamp as key
-});
-
-// Build the array with missing days filled with 0 points
-const weekArray = [];
-for (let i = 6; i >= 0; i--) { // Reverse loop for correct order
-  const day = new Date(today);
-  day.setDate(today.getDate() - i);
-  day.setHours(0, 0, 0, 0); // Normalize
-
-  weekArray.push({
-    date: day,
-    points: weekMap.get(day.getTime()) || 0, // Fetch from map
+  // Normalize the dates and store in a Map
+  const weekMap = new Map();
+  week.forEach((day) => {
+    const normalizedDate = new Date(day.date);
+    normalizedDate.setHours(0, 0, 0, 0); // Ensure the same format
+    weekMap.set(normalizedDate.getTime(), day.points); // Use timestamp as key
   });
-}
 
-res.status(200).json({
-  status: 'success',
-  data: {
-    week: weekArray
+  // Build the array with missing days filled with 0 points
+  const weekArray = [];
+  for (let i = 6; i >= 0; i--) { // Reverse loop for correct order
+    const day = new Date(today);
+    day.setDate(today.getDate() - i);
+    day.setHours(0, 0, 0, 0); // Normalize
+
+    weekArray.push({
+      date: day,
+      points: weekMap.get(day.getTime()) || 0, // Fetch from map
+    });
   }
-});
+
+  res.status(200).json({
+    status: 'success',
+    data: {
+      week: weekArray
+    }
+  });
 
 
 });
+exports.sectionUpdate = catchAsync(async (req, res, next) => {
+  const { sectionId, correctAttempts, wrongAttempts } = req.body;
+
+  // Validate inputs
+  if (
+    typeof sectionId !== 'number' || sectionId < 0 ||
+    typeof correctAttempts !== 'number' || correctAttempts < 0 ||
+    typeof wrongAttempts !== 'number' || wrongAttempts < 0
+  ) {
+    return next(new AppError('Please provide valid section data', 400));
+  }
+
+  // Try to update existing section
+  const section = await Sections.findOneAndUpdate(
+    { userId: req.user.id, id: sectionId },
+    {
+      $inc: {
+        correctAttempts,
+        wrongAttempts
+      },
+      $set: {
+        lastTimeUsed: new Date()
+      }
+    },
+    { new: true, runValidators: true }
+  );
+
+  // If not found, create new section
+  if (!section) {
+    const newSection = await Sections.create({
+      userId: req.user.id,
+      id: sectionId,
+      correctAttempts,
+      wrongAttempts,
+      lastTimeUsed: new Date()
+    });
+    return res.status(201).json({
+      status: 'success',
+      data: {
+        section: newSection
+      }
+    });
+  }
+
+  // Return updated section
+  return res.status(200).json({
+    status: 'success',
+    data: {
+      section
+    }
+  });
+});
+
+exports.getSections = catchAsync(async (req, res, next) => {
+  const sections = await Sections.find({ userId: req.user.id })
+    .select('-_id -__v -userId')
+    .sort('id');
+
+  res.status(200).json({
+    status: 'success',
+    data: {
+      sections
+    }
+  });
+});
+
 
 // Do NOT update passwords with this!
 exports.updateUser = factory.updateOne(User);
